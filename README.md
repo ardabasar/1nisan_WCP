@@ -1,4 +1,4 @@
-/*SARI TOP*/
+*SARI TOP*
 distanceToShotMap.put(Inches.of(36.0),  new Shot(3480, 0.12));  // Hub dibinden atis
 distanceToShotMap.put(Inches.of(52.0),  new Shot(4060, 0.19));  // En yakin
 distanceToShotMap.put(Inches.of(72.0),  new Shot(4278, 0.25));  // Yakin-orta
@@ -17,7 +17,7 @@ distanceToShotMap.put(Inches.of(242.0), new Shot(6090, 0.64));  // Human side'e 
 
 ------------------------------------------------------------------------------------------------------------------
 
-/*BEYAZ TOP*/
+*BEYAZ TOP*
 
 distanceToShotMap.put(Inches.of(36.0), new Shot(2880, 0.12)); // Hub dibinden atis
 distanceToShotMap.put(Inches.of(52.0), new Shot(3360, 0.19)); // En yakin
