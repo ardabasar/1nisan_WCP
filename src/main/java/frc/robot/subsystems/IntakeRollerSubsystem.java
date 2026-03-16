@@ -226,22 +226,35 @@ public class IntakeRollerSubsystem extends SubsystemBase {
         }
     }
 
+    // ========================================================================
+    // ELASTIC BILDIRIM - ASENKRON (ana donguyu bloklamaz!)
+    // ========================================================================
+    /**
+     * Motor durum degisikliklerini Elastic dashboard'a bildirir.
+     * 
+     * ONEMLI: sendNotificationAsync() kullanilir cunku:
+     *   - Senkron sendNotification() ilk cagrisinda JVM class loading
+     *     nedeniyle 200-500ms bloklar -> loop overrun
+     *   - Async versiyon ayri thread'de calisir, periodic() bloklanmaz
+     *   - Elastic.warmUp() zaten Robot constructor'da cagrildi,
+     *     ama yine de async kullanmak en guvenli yontemdir.
+     */
     private void sendElasticNotification(MotorStatus status) {
         switch (status) {
             case IDLE:
-                Elastic.sendNotification(
+                Elastic.sendNotificationAsync(
                     new Elastic.Notification(NotificationLevel.INFO, "IntakeRoller", "Durgun")
                         .withDisplaySeconds(2.0));
                 break;
             case RUNNING:
-                Elastic.sendNotification(
+                Elastic.sendNotificationAsync(
                     new Elastic.Notification(NotificationLevel.INFO, "IntakeRoller", "Calisiyor")
                         .withDisplaySeconds(2.0));
                 break;
             case STALLED:
                 // KIRMIZI - Zorlanma/Sikisma - ERROR seviyesi
                 // displaySeconds cok yuksek - durum degisince (RUNNING/IDLE) yeni bildirim gelecek
-                Elastic.sendNotification(
+                Elastic.sendNotificationAsync(
                     new Elastic.Notification(NotificationLevel.ERROR, "INTAKE ROLLER SIKISTI!", 
                         "Motor zorlanma tespit edildi! Akim yuksek, hareket yok.")
                         .withDisplaySeconds(9999.0));

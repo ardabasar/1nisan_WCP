@@ -23,10 +23,13 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 
 import frc.robot.commands.AlignToAprilTag;
+import frc.robot.commands.AlignToHubOdometry;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.IntakeCommand;
 import frc.robot.commands.ClimbCommand;
 import frc.robot.commands.auto.AutoAlignToTagCommand;
+import frc.robot.commands.auto.TowerDriveCommand;
+import frc.robot.commands.auto.TowerRotateCommand;
 import frc.robot.commands.auto.VisionAutoSeedCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -161,9 +164,9 @@ public class RobotContainer {
         NamedCommands.registerCommand("hopperRun",
             Commands.startEnd(() -> hopper.run(), () -> hopper.stop(), hopper).withTimeout(3.0));
 
-        // Hizalama (WCP odometry+hub yonu bazli)
+        // Hizalama (614 tarzi odometry+hub yonu bazli)
         NamedCommands.registerCommand("alignToTag",
-            new AlignToAprilTag(drivetrain, vision, MaxSpeed, MaxAngularRate).withTimeout(3.0));
+            new AlignToHubOdometry(drivetrain).withTimeout(3.0));
 
         // Climb yukari (mekanizmayi uzat) - 3 saniye
         NamedCommands.registerCommand("climbUp",
@@ -172,6 +175,27 @@ public class RobotContainer {
         // Climb asagi (robotu as) - 3 saniye
         NamedCommands.registerCommand("climbDown",
             new ClimbCommand(climb, ClimbCommand.Direction.DOWN).withTimeout(2.0));
+
+        // ==============================================================
+        // TOWER HIZALAMA - Asilma icin (Tag 15 Red / Tag 31 Blue)
+        // 2 FAZLI: Once don+ortala, sonra duz ilerle
+        // PathPlanner'da: path -> alignToTowerRot -> alignToTowerDrive -> climbUp
+        // ==============================================================
+
+        // FAZ 1: Sadece donus - tag'i ekranin ortasina getir (ileri/geri YOK)
+        NamedCommands.registerCommand("alignToTowerRot",
+            new TowerRotateCommand(drivetrain, "limelight", MaxAngularRate)
+                .withTimeout(3.0));
+
+        // FAZ 2: Sadece duz ilerle - 0.5m mesafeye yaklas (donus YOK)
+        NamedCommands.registerCommand("alignToTowerDrive",
+            new TowerDriveCommand(drivetrain, "limelight", MaxSpeed, 0.5)
+                .withTimeout(3.0));
+
+        // FAZ 2 alternatif: Yakin mesafe (0.35m)
+        NamedCommands.registerCommand("alignToTowerDriveClose",
+            new TowerDriveCommand(drivetrain, "limelight", MaxSpeed, 0.35)
+                .withTimeout(3.0));
 
         // Vision kontrol
         NamedCommands.registerCommand("visionOn", Commands.runOnce(() -> vision.setEnabled(true)));
@@ -250,10 +274,12 @@ public class RobotContainer {
             new ShootCommand(shooter, hood, feeder, hopper, vision, "limelight", intakeArm));
 
         // ==================================================================
-        // RB -> Hub yonune donus hizalama (WCP aim mantigi, basili tut)
+        // RB -> Hub yonune donus hizalama (614 tarzi odometry bazli, basili tut)
+        // Odometry uzerinden atan2 ile hub merkezine yon hesaplar.
+        // AprilTag gorunmese bile calisir (vision seed yeterli).
         // ==================================================================
         joystick.rightBumper().whileTrue(
-            new AlignToAprilTag(drivetrain, "limelight", MaxSpeed, MaxAngularRate,
+            new AlignToHubOdometry(drivetrain,
                 () -> {
                     double sign = driveXYInverted ? -1.0 : 1.0;
                     return sign * shapeInput(-joystick.getLeftY()) * MaxSpeed;

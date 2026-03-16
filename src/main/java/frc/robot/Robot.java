@@ -10,6 +10,8 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
+import frc.robot.util.Elastic;
+
 /**
  * ============================================================================
  * ROBOT.java — 2. Otonom Crash Fix (Kok Neden Cozumu)
@@ -60,6 +62,13 @@ public class Robot extends TimedRobot {
 
     public Robot() {
         m_robotContainer = new RobotContainer();
+        
+        // ================================================================
+        // ELASTIC WARM-UP - JVM class loading gecikmesini onler
+        // Ilk bildirim match sirasinda degil, boot sirasinda yapilir.
+        // Bu sayede periodic loop'ta loop overrun olmaz.
+        // ================================================================
+        Elastic.warmUp();
     }
 
     @Override

@@ -5,52 +5,22 @@
     "data": {
       "commands": [
         {
-          "type": "path",
-          "data": {
-            "pathName": "auto1"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "alignToTag"
-          }
-        },
-        {
           "type": "sequential",
           "data": {
             "commands": [
               {
-                "type": "named",
+                "type": "path",
                 "data": {
-                  "name": "shoot"
+                  "pathName": "auto1"
                 }
               },
               {
                 "type": "named",
                 "data": {
-                  "name": "climbUp"
+                  "name": "alignToTowerRot"
                 }
               }
             ]
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "auto2"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "auto3"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "climbDown"
           }
         }
       ]

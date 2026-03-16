@@ -12,7 +12,32 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.PubSubOption;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.networktables.StringTopic;
+import edu.wpi.first.wpilibj.DriverStation;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * ============================================================================
+ * ELASTIC DASHBOARD NOTIFICATION UTILITY
+ * ============================================================================
+ * 
+ * ONEMLI: Ilk sendNotification() cagrisi JVM class loading ve JIT compilation
+ * nedeniyle 200-500ms gecikmeye neden olabilir. Bu, robot ana dongusunu
+ * bloklayarak loop overrun'a yol acar.
+ * 
+ * COZUM:
+ *   1) warmUp() metodunu robotInit()'te cagirin - class loading'i onceden yapar
+ *   2) Match sirasinda sendNotificationAsync() kullanin - ana donguyu bloklamaz
+ * 
+ * Kullanim:
+ *   // robotInit()'te:
+ *   Elastic.warmUp();
+ * 
+ *   // Match sirasinda:
+ *   Elastic.sendNotificationAsync(new Notification(...));
+ * ============================================================================
+ */
 public final class Elastic {
     private static final StringTopic notificationTopic =
         NetworkTableInstance.getDefault().getStringTopic("/Elastic/RobotNotifications");
@@ -24,12 +49,74 @@ public final class Elastic {
         selectedTabTopic.publish(PubSubOption.keepDuplicates(true));
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // ========================================================================
+    // ASYNC EXECUTOR - Ana donguyu bloklamadan bildirim gonderir
+    // ========================================================================
+    private static final ExecutorService asyncExecutor = 
+        Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ElasticNotifier");
+            t.setDaemon(true); // Robot kodu kapanirken thread'i otomatik sonlandirir
+            return t;
+        });
+
+    private static volatile boolean isWarmedUp = false;
+
     public enum NotificationLevel {
         INFO,
         WARNING,
         ERROR
     }
 
+    // ========================================================================
+    // WARM-UP - robotInit()'te cagirin, class loading gecikmesini onler
+    // ========================================================================
+    /**
+     * Elastic bildirim sistemini onceden isitirir (warm-up).
+     * JVM class loading ve JIT compilation'i boot sirasinda yapar,
+     * boylece match sirasinda ilk bildirim gecikmesi olmaz.
+     * 
+     * Bu metodu robotInit()'te cagirin.
+     */
+    public static void warmUp() {
+        if (isWarmedUp) return;
+        
+        // Dummy bildirim gonder - class loading + JSON serialization'i tetikler
+        sendNotification(
+            new Notification(NotificationLevel.INFO, "System", "Elastic initialized")
+                .withDisplayMilliseconds(1000)
+        );
+        
+        isWarmedUp = true;
+        System.out.println("[Elastic] Warm-up tamamlandi - bildirim sistemi hazir");
+    }
+
+    // ========================================================================
+    // ASYNC NOTIFICATION - Match sirasinda kullanin (ana donguyu bloklamaz)
+    // ========================================================================
+    /**
+     * Bildirimi asenkron olarak gonderir - ana robot dongusunu BLOKLAMAZ.
+     * Match sirasinda (teleop/auto periodic) kullanin.
+     * 
+     * Thread-safe: Herhangi bir thread'den guvenle cagrilabilir.
+     * Bildirimler sirali olarak islenir (tek thread).
+     */
+    public static void sendNotificationAsync(Notification notification) {
+        asyncExecutor.submit(() -> {
+            try {
+                sendNotification(notification);
+            } catch (Exception e) {
+                // Bildirim basarisiz olursa robot kodunu CRASH ETTIRME
+                DriverStation.reportWarning(
+                    "[Elastic] Async bildirim hatasi: " + e.getMessage(), 
+                    false
+                );
+            }
+        });
+    }
+
+    // ========================================================================
+    // SYNC NOTIFICATION - Orijinal metod (warm-up icin veya kritik olmayan)
+    // ========================================================================
     public static void sendNotification(Notification notification) {
         try {
             notificationPublisher.set(objectMapper.writeValueAsString(notification));
