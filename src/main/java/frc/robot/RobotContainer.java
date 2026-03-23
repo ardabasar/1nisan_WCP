@@ -31,6 +31,7 @@ import frc.robot.commands.auto.AutoAlignToTagCommand;
 import frc.robot.commands.auto.TowerDriveCommand;
 import frc.robot.commands.auto.TowerRotateCommand;
 import frc.robot.commands.auto.VisionAutoSeedCommand;
+import frc.robot.commands.auto.VisionCorrectCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.ShooterSubsystem;
@@ -154,7 +155,7 @@ public class RobotContainer {
         // Atis: Shooter + Hood + Feeder + Hopper + IntakeArm agitasyon
         NamedCommands.registerCommand("shoot",
             new ShootCommand(shooter, hood, feeder, hopper, vision, "limelight", intakeArm)
-                .withTimeout(3.0));
+                .withTimeout(5.0));
 
         // Intake: Arm + Roller
         NamedCommands.registerCommand("intake",
@@ -174,7 +175,7 @@ public class RobotContainer {
 
         // Climb asagi (robotu as) - 3 saniye
         NamedCommands.registerCommand("climbDown",
-            new ClimbCommand(climb, ClimbCommand.Direction.DOWN).withTimeout(2.0));
+            new ClimbCommand(climb, ClimbCommand.Direction.DOWN).withTimeout(3.0));
 
         // ==============================================================
         // TOWER HIZALAMA - Asilma icin (Tag 15 Red / Tag 31 Blue)
@@ -196,6 +197,42 @@ public class RobotContainer {
         NamedCommands.registerCommand("alignToTowerDriveClose",
             new TowerDriveCommand(drivetrain, "limelight", MaxSpeed, 0.35)
                 .withTimeout(3.0));
+
+        // ==============================================================
+        // VISION DUZELTME - Path aralarinda odometry duzeltme
+        // Robot durur, tag gorur, odometry gunceller, devam eder
+        // ==============================================================
+        // Hizli duzeltme (0.15-0.5s) - cogu path arasi icin yeterli
+        NamedCommands.registerCommand("visionCorrect",
+            new VisionCorrectCommand(drivetrain, vision, 0.15, 0.5));
+
+        // Uzun duzeltme (0.2-0.8s) - onemli path'lerden once (atis, tower)
+        NamedCommands.registerCommand("visionCorrectLong",
+            new VisionCorrectCommand(drivetrain, vision, 0.2, 0.8));
+
+        // ==============================================================
+        // INTAKE ROLLER - Path sirasinda top alma
+        // PathPlanner'da deadline group ile path'e paralel calistir:
+        //   path bitince (hedefe ulasinca) roller durur
+        // ==============================================================
+        NamedCommands.registerCommand("intakeRoller",
+            Commands.startEnd(
+                () -> {
+                    intakeRoller.run();
+                    hopper.run();
+                },
+                () -> {
+                    intakeRoller.stop();
+                    hopper.stop();
+                },
+                intakeRoller, hopper));
+
+        // Sadece roller (hopper'siz)
+        NamedCommands.registerCommand("intakeRollerOnly",
+            Commands.startEnd(
+                () -> intakeRoller.run(),
+                () -> intakeRoller.stop(),
+                intakeRoller));
 
         // Vision kontrol
         NamedCommands.registerCommand("visionOn", Commands.runOnce(() -> vision.setEnabled(true)));

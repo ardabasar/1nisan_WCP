@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.474127609145773,
-        "y": 3.75
+        "x": 2.149,
+        "y": 5.937
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.3890027133069625,
-        "y": 3.9850611667384293
+        "x": 2.399,
+        "y": 5.937
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 2.8230175342016492,
-        "y": 5.943210035607197
+        "x": 0.4076810071001501,
+        "y": 5.937
       },
       "prevControl": {
-        "x": 2.89212812330675,
-        "y": 5.702952410393041
+        "x": 0.1576810071001501,
+        "y": 5.937
       },
       "nextControl": null,
       "isLocked": false,
@@ -45,7 +45,7 @@
     "rotation": 180.0
   },
   "reversed": false,
-  "folder": null,
+  "folder": "ic_saha",
   "idealStartingState": {
     "velocity": 0,
     "rotation": 180.0

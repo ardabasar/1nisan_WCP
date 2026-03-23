@@ -10,6 +10,7 @@ import com.ctre.phoenix6.swerve.*;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants.*;
 
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.units.measure.*;
@@ -95,6 +96,14 @@ public class TunerConstants {
     // Simulated voltage necessary to overcome friction
     private static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
     private static final Voltage kDriveFrictionVoltage = Volts.of(0.2);
+
+    // Explicit estimator covariance values.
+    // Odometry should stay confident in wheel+gyro integration when tags are absent,
+    // while vision heading stays ignored because MegaTag2 already consumes gyro heading.
+    private static final Matrix<N3, N1> kOdometryStdDevs =
+        VecBuilder.fill(0.02, 0.02, Math.toRadians(0.7));
+    private static final Matrix<N3, N1> kVisionStdDevs =
+        VecBuilder.fill(0.7, 0.7, 999999);
 
     public static final SwerveDrivetrainConstants DrivetrainConstants = new SwerveDrivetrainConstants()
             .withCANBusName(kCANBus.getName())
@@ -197,7 +206,14 @@ public class TunerConstants {
      */
     public static CommandSwerveDrivetrain createDrivetrain() {
         return new CommandSwerveDrivetrain(
-            DrivetrainConstants, FrontLeft, FrontRight, BackLeft, BackRight
+            DrivetrainConstants,
+            250.0,
+            kOdometryStdDevs,
+            kVisionStdDevs,
+            FrontLeft,
+            FrontRight,
+            BackLeft,
+            BackRight
         );
     }
 

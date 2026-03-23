@@ -46,19 +46,19 @@ public class TowerRotateCommand extends Command {
     // ========================================================================
     // ROTATION PID
     // ========================================================================
-    private static final double ROT_KP = 1.0;
-    private static final double ROT_KD = 0.12;
-    private static final double ROT_TOLERANCE = 0.015;    // txnc (~0.5 derece)
-    private static final double ROT_DEADBAND = 0.008;
-    private static final double MIN_ROT_OUTPUT = 0.05;
-    private static final double MAX_ROT_SPEED_SCALE = 0.6;
-    private static final double ROT_SLEW_RATE = 3.0;
+    private static final double ROT_KP = 2.0;             // orta guc - surtumeyi yener ama overshoot yapmaz
+    private static final double ROT_KD = 0.1;             // hafif frenleme
+    private static final double ROT_TOLERANCE = 0.025;    // txnc (~0.8 derece) - kilitlenebilir tolerans
+    private static final double ROT_DEADBAND = 0.01;
+    private static final double MIN_ROT_OUTPUT = 0.15;    // surtumeyi yenmek icin minimum hiz (rad/s)
+    private static final double MAX_ROT_SPEED_SCALE = 0.35; // max hizin %35'i - kontrollü ama yeterli
+    private static final double ROT_SLEW_RATE = 2.0;      // yumusak ivmelenme
 
     // ========================================================================
     // GUVENLIK
     // ========================================================================
-    private static final double TIMEOUT_SECONDS = 3.0;
-    private static final double SETTLE_SECONDS = 0.25;
+    private static final double TIMEOUT_SECONDS = 6.0;    // 6 saniye - rahat hizalansin
+    private static final double SETTLE_SECONDS = 0.3;
 
     // Dashboard throttle
     private static final int DASHBOARD_INTERVAL = 10;

@@ -47,10 +47,10 @@ public class ShootCommand extends Command {
     // ========================================================================
     // Toplari shooter'a itmek icin kol yukari/asagi sallanir.
     // Asagi hiz dusuk: yercekimi yardim eder, motor zorlanmaz.
-    private static final double ARM_UP_SPEED   =  0.20;   // yukari hiz
-    private static final double ARM_DOWN_SPEED = -0.20;    // asagi hiz (esit kalkip insin)
-    private static final double ARM_UP_SECONDS   = 0.40;   // yukari suresi
-    private static final double ARM_DOWN_SECONDS = 0.40;   // asagi suresi
+    private static final double ARM_UP_SPEED = 0.20; // yukari hiz
+    private static final double ARM_DOWN_SPEED = -0.20; // asagi hiz (esit kalkip insin)
+    private static final double ARM_UP_SECONDS = 0.40; // yukari suresi
+    private static final double ARM_DOWN_SECONDS = 0.40; // asagi suresi
     private static final double ARM_CYCLE_SECONDS = ARM_UP_SECONDS + ARM_DOWN_SECONDS;
 
     // ========================================================================
@@ -66,7 +66,7 @@ public class ShootCommand extends Command {
                             .interpolate(startValue.hoodPosition, endValue.hoodPosition, t)));
 
     static {
-        /* BEYAZ TOP, SARIDA RPM ARTTIR */
+        /* ORIJINAL DEGERLER - WCP referans bazli */
         distanceToShotMap.put(Inches.of(36.0), new Shot(2880, 0.12)); // Hub dibinden atis
         distanceToShotMap.put(Inches.of(52.0), new Shot(3360, 0.19)); // En yakin
         distanceToShotMap.put(Inches.of(72.0), new Shot(3540, 0.25)); // Yakin-orta
@@ -76,7 +76,7 @@ public class ShootCommand extends Command {
         distanceToShotMap.put(Inches.of(150.0), new Shot(4260, 0.46)); // Uzak
         distanceToShotMap.put(Inches.of(165.5), new Shot(4380, 0.48)); // WCP uzak referans
 
-        // Uzun menzil (tower/human tarafi yakini) - sahada tune edilecek
+// Uzun menzil (tower/human tarafi yakini) - sahada tune edilecek
         distanceToShotMap.put(Inches.of(182.0), new Shot(4536, 0.51));
         distanceToShotMap.put(Inches.of(200.0), new Shot(4692, 0.55));
         distanceToShotMap.put(Inches.of(220.0), new Shot(4860, 0.59));
@@ -213,9 +213,9 @@ public class ShootCommand extends Command {
                 double phase = feedElapsed % ARM_CYCLE_SECONDS;
 
                 if (phase < ARM_UP_SECONDS) {
-                    intakeArm.setSpeed(ARM_UP_SPEED);   // 1s yukari
+                    intakeArm.setSpeed(ARM_UP_SPEED); // 1s yukari
                 } else {
-                    intakeArm.setSpeed(ARM_DOWN_SPEED);  // 1s asagi (yumusak)
+                    intakeArm.setSpeed(ARM_DOWN_SPEED); // 1s asagi (yumusak)
                 }
             } else {
                 intakeArm.stop();
@@ -257,21 +257,16 @@ public class ShootCommand extends Command {
     }
 
     // ========================================================================
-    // MESAFE OLCUMU - Oncelik: Limelight direkt > Odometry > Fallback
+    // MESAFE OLCUMU - Sadece Odometry (hub merkezine mesafe)
+    // ========================================================================
+    // NEDEN LIMELIGHT DIREKT KULLANILMIYOR:
+    //   Limelight hangi tag'i goruyorsa ONA mesafe olcer.
+    //   Eger tower/trench/outpost tag'i goruyorsa yanlis mesafe verir.
+    //   Odometry her zaman hub MERKEZINE mesafe verir → dogru RPM.
     // ========================================================================
     private String lastDistanceSource = "None";
 
     private Distance getDistanceToHub() {
-        boolean hasTarget = LimelightHelpers.getTV(limelightName);
-        if (hasTarget) {
-            double[] pose = LimelightHelpers.getTargetPose_CameraSpace(limelightName);
-            if (pose != null && pose.length >= 3 && pose[2] > 0.05) {
-                double d = Math.sqrt(pose[0] * pose[0] + pose[2] * pose[2]);
-                lastDistanceSource = "Limelight";
-                return Meters.of(d);
-            }
-        }
-
         if (vision != null && vision.hasBeenSeeded()) {
             double dist = vision.getDistanceToOwnHub();
             if (dist >= 0 && dist < 20.0) {

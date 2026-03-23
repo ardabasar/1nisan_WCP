@@ -44,10 +44,11 @@ public class AlignToHubOdometry extends Command {
     // ========================================================================
     // PID KONTROL PARAMETRELERI (614 referansli, 9545'e uyarlanmis)
     // ========================================================================
-    private static final double ROTATION_KP = 4.0;
-    private static final double MAX_ANGULAR_SPEED_RAD_PER_SEC = 5.0;
-    private static final double MIN_ANGULAR_SPEED_RAD_PER_SEC = 0.35;
-    private static final double ANGLE_TOLERANCE_DEGREES = 2.75;
+    private static final double ROTATION_KP = 6.0;
+    private static final double MAX_ANGULAR_SPEED_RAD_PER_SEC = 7.0;
+    private static final double MIN_ANGULAR_SPEED_RAD_PER_SEC = 0.5;
+    private static final double ANGLE_TOLERANCE_DEGREES = 0.5;        // 0.5 derece: neredeyse 0 tolerans
+    // 0.5 derece altinda bile duzeltme yapar ama omega kucuk olur (KP * kucuk hata)
 
     // Strafing compensation - surus sirasinda hedefe kilitli kalmayi saglar
     private static final double STRAFE_COMPENSATION_FACTOR = 0.75;
@@ -121,14 +122,15 @@ public class AlignToHubOdometry extends Command {
         omega = Math.max(-MAX_ANGULAR_SPEED_RAD_PER_SEC,
                 Math.min(MAX_ANGULAR_SPEED_RAD_PER_SEC, omega));
 
-        // Tolerans icindeyse kilitlen
+        // Tolerans kontrolu (dashboard icin)
         boolean aimed = headingErrorDeg < ANGLE_TOLERANCE_DEGREES;
 
-        // Swerve kontrolu uygula
+        // Swerve kontrolu uygula - HERZAMAN omega uygula, 0'a kilitlenme yok
+        // KP * kucuk hata = kucuk omega → surekli duzeltme, tam 0'a yaklasir
         drivetrain.setControl(fieldCentric
             .withVelocityX(vx)
             .withVelocityY(vy)
-            .withRotationalRate(aimed ? 0 : omega));
+            .withRotationalRate(omega));
 
         // Dashboard
         SmartDashboard.putNumber("HubAlign/HeadingError", Math.toDegrees(headingError));

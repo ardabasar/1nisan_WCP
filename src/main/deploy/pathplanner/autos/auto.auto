@@ -11,13 +11,55 @@
               {
                 "type": "path",
                 "data": {
+                  "pathName": "auto1_azimuth"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "visionCorrect"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
                   "pathName": "auto1"
                 }
               },
               {
                 "type": "named",
                 "data": {
-                  "name": "alignToTowerRot"
+                  "name": "visionCorrect"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "auto1_back"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "visionCorrect"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "auto1_go"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "visionCorrect"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "auto1_center"
                 }
               }
             ]

@@ -103,19 +103,14 @@ public class VisionAutoSeedCommand extends Command {
     public void execute() {
         attemptCount++;
         
-        // Alliance bilgisini al
-        boolean isRed = DriverStation.getAlliance()
-            .map(a -> a == DriverStation.Alliance.Red)
-            .orElse(false);
-        
-        // Pigeon yaw'i Limelight'a gonder (MegaTag2 icin gerekli)
+        // Pigeon yaw + yaw rate'i Limelight'a gonder (MegaTag2 icin gerekli)
         double yawDeg = drivetrain.getPigeon2().getYaw().getValueAsDouble();
-        LimelightHelpers.SetRobotOrientation(limelightName, yawDeg, 0, 0, 0, 0, 0);
+        double yawRateDegPerSec = Math.toDegrees(drivetrain.getState().Speeds.omegaRadiansPerSecond);
+        LimelightHelpers.SetRobotOrientation(limelightName, yawDeg, yawRateDegPerSec, 0, 0, 0, 0);
         
         // MegaTag2 pose tahmini al
-        PoseEstimate estimate = isRed
-            ? LimelightHelpers.getBotPoseEstimate_wpiRed_MegaTag2(limelightName)
-            : LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(limelightName);
+        // KRITIK: MegaTag2 icin HER ZAMAN wpiBlue coordinate system kullan.
+        PoseEstimate estimate = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(limelightName);
         
         if (estimate == null || estimate.pose == null) return;
         if (estimate.tagCount < MIN_TAG_COUNT) return;
