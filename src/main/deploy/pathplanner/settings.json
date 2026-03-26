@@ -3,6 +3,8 @@
   "robotLength": 0.762,
   "holonomicMode": true,
   "pathFolders": [
+    "left_balls",
+    "center_human_climb",
     "human_climb",
     "human_shooter"
   ],
@@ -15,7 +17,7 @@
   "robotMass": 46.0,
   "robotMOI": 6.883,
   "robotTrackwidth": 0.5588,
-  "driveWheelRadius": 0.045,
+  "driveWheelRadius": 0.05,
   "driveGearing": 6.746031746031747,
   "maxDriveSpeed": 4.05,
   "driveMotorType": "krakenX60",

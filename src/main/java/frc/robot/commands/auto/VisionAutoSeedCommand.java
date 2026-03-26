@@ -59,7 +59,6 @@ public class VisionAutoSeedCommand extends Command {
     
     /** Ambiguity esigi (tek tag icin) */
     private static final double MAX_AMBIGUITY = 0.15;
-    
     private Timer timer = new Timer();
     private boolean seeded = false;
     
@@ -129,6 +128,11 @@ public class VisionAutoSeedCommand extends Command {
         double py = estimate.pose.getY();
         if (px < -0.5 || px > 17.0 || py < -0.5 || py > 8.5) return;
         
+        Pose2d candidatePose = new Pose2d(
+            estimate.pose.getTranslation(),
+            drivetrain.getState().Pose.getRotation()
+        );
+
         // Bu tahmin daha iyi mi? (daha fazla tag VEYA ayni tag sayisinda daha yakin)
         boolean isBetter = false;
         if (estimate.tagCount > bestTagCount) {
@@ -138,7 +142,7 @@ public class VisionAutoSeedCommand extends Command {
         }
         
         if (isBetter) {
-            bestPose = estimate.pose;
+            bestPose = candidatePose;
             bestTagCount = estimate.tagCount;
             bestAvgDist = estimate.avgTagDist;
         }

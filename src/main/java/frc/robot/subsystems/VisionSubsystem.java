@@ -1,11 +1,8 @@
 package frc.robot.subsystems;
 
-import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.networktables.DoublePublisher;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -63,19 +60,15 @@ public class VisionSubsystem extends SubsystemBase {
     private static final double MAX_SINGLE_TAG_AMBIGUITY         = 0.3;                  // tek tag ambiguity filtresi
 
     // ========================================================================
-    // STDDEV MATRISLERI
+    // STDDEV HESABI (Turkiye 1.si + Dunya Finalisti hibrit)
     // ========================================================================
-    // MegaTag2 heading icin gyro kullanir:
-    //   - 1 tag: heading IGNORE (tek tag heading guvenilmez)
-    //   - 2+ tag: heading HAFIF duzelt (gyro drift telafisi icin)
-    //   - 3+ tag: heading ORTA duzelt
-    // XY StdDev'leri DUSUK = vision'a COK guven = tag gorununce HEMEN duzelt
-    private static final Matrix<N3, N1> STD_DEV_1_TAG =
-        VecBuilder.fill(0.5,  0.5,  999999);               // tek tag: heading IGNORE
-    private static final Matrix<N3, N1> STD_DEV_2_TAG =
-        VecBuilder.fill(0.15, 0.15, Math.toRadians(30));   // 2 tag: heading hafif duzelt
-    private static final Matrix<N3, N1> STD_DEV_3_TAG =
-        VecBuilder.fill(0.05, 0.05, Math.toRadians(15));   // 3+ tag: heading daha iyi duzelt
+    // MegaTag2 → XY icin: xyStdDev = 0.125 * avgTagDist^2 / tagCount, heading = 999999
+    // MegaTag1 → 2+ tag gorununce heading DUZELTME: headingStdDev = 0.1 rad
+    //            1 tag → heading = 999999 (tek tag heading'i cok guvenilmez)
+    // Referans: 2025 Turkiye sampiyonu + dunya finalisti hibrit
+    private static final double XY_STDDEV_COEFFICIENT = 0.125;
+    private static final double HEADING_STDDEV_MULTI_TAG = 0.1;  // 2+ tag → heading duzelt (~6 derece)
+    private static final double HEADING_STDDEV_SINGLE_TAG = 999999;  // 1 tag → heading'e dokunma
 
     // Vision seed tracking
     private boolean visionSeeded = false;
@@ -473,7 +466,10 @@ public class VisionSubsystem extends SubsystemBase {
         // POSE TAHMINI AL
         // KRITIK: HER ZAMAN wpiBlue! wpiRed YANLIS koordinat verir.
         // ==================================================================
+        // MegaTag2: XY icin (heading = gyro, guvenilir XY)
         PoseEstimate estimate = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(limelightName);
+        // MegaTag1: Heading icin (2+ tag → bagimsiz heading hesabi)
+        PoseEstimate mt1Estimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(limelightName);
 
         // Temel rejection'lar
         if (estimate == null || estimate.pose == null) return;
@@ -519,18 +515,23 @@ public class VisionSubsystem extends SubsystemBase {
         // Disabled'da bile calisir! Robot acilir acilmaz konum alir.
         // ==================================================================
         if (!visionSeeded) {
-            // ILK SEED: TAM POSE al (XY + Heading)
-            // Robot ilk acildiginda gyro 0° ile baslar, gercek yon farkli olabilir.
-            // MegaTag2 heading gyro'dan geliyor DOGRU, ama ilk an'da
-            // gyro henuz dogru yonu bilmiyor → vision'in verdigi heading'i al.
-            // Bu resetPose ayni zamanda gyro offset'ini de duzeltiyor.
-            drivetrain.resetPose(estimate.pose);
+            // ILK SEED: MegaTag1 varsa ve 2+ tag goruyorsa → heading dahil tam pose
+            // MegaTag1 2+ tag ile bagimsiz heading hesaplar (gyro'dan bagimsiz)
+            // 1 tag veya MT1 yoksa → MegaTag2 ile seed (heading = gyro'dan gelir)
+            Pose2d seedPose;
+            if (mt1Estimate != null && mt1Estimate.tagCount >= 2) {
+                seedPose = mt1Estimate.pose;  // Heading dahil tam bagimsiz pose
+                SmartDashboard.putString("Vision/Status", "SEEDED(MT1-heading)!");
+            } else {
+                seedPose = estimate.pose;  // MegaTag2: XY iyi, heading = gyro
+                SmartDashboard.putString("Vision/Status", "SEEDED(MT2)!");
+            }
+            drivetrain.resetPose(seedPose);
             drivetrain.markVisionSeeded();
             visionSeeded = true;
             lastAcceptedPose = estimate.pose;
             lastAcceptedTimestampSeconds = estimate.timestampSeconds;
             visionUpdateCount++;
-            SmartDashboard.putString("Vision/Status", "SEEDED!");
             return;
         }
 
@@ -540,27 +541,35 @@ public class VisionSubsystem extends SubsystemBase {
         // Titreme onleme: fark cok kucukse (< 3cm) → hic bir sey yapma.
         // ==================================================================
         if (DriverStation.isDisabled()) {
+            // Disabled modda: XY duzelt + 2+ tag varsa heading de duzelt
+            double headingStdDev = 999999;
+            if (mt1Estimate != null && mt1Estimate.tagCount >= 2 && mt1Estimate.avgTagDist < 4.0) {
+                headingStdDev = HEADING_STDDEV_MULTI_TAG;  // 2+ tag → heading duzelt
+            }
+
             if (poseDiffMeters > 0.5) {
-                // Robot elle tasindi veya odometry cok kaymis → SERT RESET (sadece XY!)
-                Pose2d corrected = new Pose2d(
-                    estimate.pose.getTranslation(),
-                    currentPose.getRotation()  // gyro heading koru
-                );
-                drivetrain.resetPose(corrected);
+                drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
+                    VecBuilder.fill(0.01, 0.01, headingStdDev));
                 if (loopCount % DASHBOARD_INTERVAL == 0) {
-                    SmartDashboard.putString("Vision/Status", "DISABLED:RESET");
+                    SmartDashboard.putString("Vision/Status", "DISABLED:AGGRESSIVE" +
+                        (headingStdDev < 999 ? "+HDG" : ""));
                 }
             } else if (poseDiffMeters > 0.03) {
-                // Orta fark → smooth duzeltme
                 drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
-                    VecBuilder.fill(0.10, 0.10, 999999));
+                    VecBuilder.fill(0.10, 0.10, headingStdDev));
                 if (loopCount % DASHBOARD_INTERVAL == 0) {
-                    SmartDashboard.putString("Vision/Status", "DISABLED:SMOOTH");
+                    SmartDashboard.putString("Vision/Status", "DISABLED:SMOOTH" +
+                        (headingStdDev < 999 ? "+HDG" : ""));
                 }
             } else {
-                // < 3cm fark → titreme onleme, DOKUNMA
+                // Stabil ama heading duzeltmesi gerekebilir
+                if (headingStdDev < 999) {
+                    drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
+                        VecBuilder.fill(0.50, 0.50, headingStdDev));
+                }
                 if (loopCount % DASHBOARD_INTERVAL == 0) {
-                    SmartDashboard.putString("Vision/Status", "DISABLED:STABLE");
+                    SmartDashboard.putString("Vision/Status", "DISABLED:STABLE" +
+                        (headingStdDev < 999 ? "+HDG" : ""));
                 }
             }
             lastAcceptedPose = estimate.pose;
@@ -602,54 +611,43 @@ public class VisionSubsystem extends SubsystemBase {
                 || (estimate.tagCount == 1 && estimate.avgTagDist < 2.5);
 
             if (trustworthy) {
-                // SADECE XY duzelt, heading'i koru (gyro heading her zaman dogru)
-                Pose2d correctedPose = new Pose2d(
-                    estimate.pose.getTranslation(),
-                    currentPose.getRotation()  // mevcut gyro heading'i koru!
-                );
-                drivetrain.resetPose(correctedPose);
+                // Agresif addVisionMeasurement (resetPose yerine!)
+                // 2+ tag → heading de duzelt, 1 tag → sadece XY
+                double aggressiveHeadingStdDev = HEADING_STDDEV_SINGLE_TAG;
+                if (mt1Estimate != null && mt1Estimate.tagCount >= 2 && mt1Estimate.avgTagDist < 4.0) {
+                    aggressiveHeadingStdDev = HEADING_STDDEV_MULTI_TAG;
+                }
+                drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
+                    VecBuilder.fill(0.01, 0.01, aggressiveHeadingStdDev));
                 visionUpdateCount++;
                 if (loopCount % DASHBOARD_INTERVAL == 0) {
                     SmartDashboard.putString("Vision/Status",
-                        "HARD-RESET-XY(diff=" + round2(poseDiffMeters) + "m)");
+                        "AGGRESSIVE-FIX(diff=" + round2(poseDiffMeters) + "m)");
                     SmartDashboard.putNumber("Vision/Tags", estimate.tagCount);
                 }
                 return;
             }
         }
 
-        // --- NORMAL FUZYON: Kalman filter ile surekli duzeltme ---
-        // Mesafe bazli quadratic StdDev (smooth scaling, step function degil)
-        double distFactor = Math.max(1.0, 0.5 * Math.pow(estimate.avgTagDist, 2.0) / estimate.tagCount);
-
-        Matrix<N3, N1> baseStdDevs;
-        if      (estimate.tagCount >= 3) baseStdDevs = STD_DEV_3_TAG;
-        else if (estimate.tagCount >= 2) baseStdDevs = STD_DEV_2_TAG;
-        else                             baseStdDevs = STD_DEV_1_TAG;
-
-        // Heading StdDev: base'den al (tek tag=999999, 2+ tag= duzeltme yapar)
-        double headingStdDev = baseStdDevs.get(2, 0);
-        // Uzak tag'lerde heading'e daha az guven
-        if (headingStdDev < 999990) {
-            headingStdDev *= distFactor;
-        }
-
-        Matrix<N3, N1> scaledStdDevs = VecBuilder.fill(
-            baseStdDevs.get(0, 0) * distFactor,
-            baseStdDevs.get(1, 0) * distFactor,
-            headingStdDev
-        );
+        // --- NORMAL FUZYON: Turkiye 1.si + heading duzeltme ---
+        // xyStdDev = 0.125 * avgTagDist^2 / tagCount
+        // heading: 2+ tag (MT1) → HEADING_STDDEV_MULTI_TAG, 1 tag → 999999
+        double xyStdDev = XY_STDDEV_COEFFICIENT * Math.pow(estimate.avgTagDist, 2.0) / estimate.tagCount;
+        xyStdDev = Math.max(xyStdDev, 0.05); // minimum 5cm StdDev
 
         // Hiz carpani: hizli giderken vision biraz daha az guvenilir
         if (linearSpeedMps > 2.0) {
-            scaledStdDevs = VecBuilder.fill(
-                scaledStdDevs.get(0, 0) * 1.5,
-                scaledStdDevs.get(1, 0) * 1.5,
-                headingStdDev  // heading ayni kalsin, hiz heading'i etkilemez
-            );
+            xyStdDev *= 1.5;
         }
 
-        drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds, scaledStdDevs);
+        // Heading: 2+ tag → MegaTag1 heading'e guven, 1 tag → dokunma
+        double headingStdDev = HEADING_STDDEV_SINGLE_TAG;
+        if (mt1Estimate != null && mt1Estimate.tagCount >= 2 && mt1Estimate.avgTagDist < 4.0) {
+            headingStdDev = HEADING_STDDEV_MULTI_TAG;
+        }
+
+        drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
+            VecBuilder.fill(xyStdDev, xyStdDev, headingStdDev));
         visionUpdateCount++;
 
         if (loopCount % DASHBOARD_INTERVAL == 0) {

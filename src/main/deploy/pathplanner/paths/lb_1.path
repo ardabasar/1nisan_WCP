@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.225,
-        "y": 3.75
+        "x": 3.499153046062407,
+        "y": 7.464888558692422
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.655388576357861,
-        "y": 3.7571321663011
+        "x": 2.3644180091814855,
+        "y": 7.464888558692422
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 0.65,
-        "y": 3.75
+        "x": 0.4,
+        "y": 7.464888558692422
       },
       "prevControl": {
-        "x": 0.3489223282436541,
-        "y": 3.7521444543584734
+        "x": 0.65,
+        "y": 7.464888558692422
       },
       "nextControl": null,
       "isLocked": false,
@@ -33,7 +33,7 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 0.5,
+    "maxVelocity": 1.75,
     "maxAcceleration": 7.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 0.0
   },
   "reversed": false,
-  "folder": "human_climb",
+  "folder": "left_balls",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 0.0
   },
   "useDefaultConstraints": false
 }

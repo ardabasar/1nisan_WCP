@@ -32,23 +32,26 @@ import frc.robot.subsystems.VisionSubsystem;
  * 6) Birakinca hepsi durur, hood default'a doner
  */
 public class ShootCommand extends Command {
+    private static final double kShooterRpmScale = 1.06;
     private static final double kShooterReadyToleranceRPM = 150.0;
     private static final int kShooterReadyCyclesRequired = 3;
     private static final double kMinFeedDelaySeconds = 0.20;
     private static final double kSpinupFallbackSeconds = 0.6;
-    private static final double kSpinupFallbackRatio = 0.85;
+    private static final double kSpinupFallbackRatio = 0.92;
     private static final double kDistanceFilterAlpha = 0.10;
     private static final double kHoodDeadband = 0.02;
     private static final Distance kMinShotDistance = Inches.of(36.0);
     private static final Distance kMaxShotDistance = Inches.of(242.0);
+    private static final double kNearHoodFastTrim = -0.004;
+    private static final double kFarHoodFastTrim = -0.010;
 
     // ========================================================================
     // INTAKE ARM AGITASYON - Zamanlayici tabanli (encoder YOK)
     // ========================================================================
     // Toplari shooter'a itmek icin kol yukari/asagi sallanir.
     // Asagi hiz dusuk: yercekimi yardim eder, motor zorlanmaz.
-    private static final double ARM_UP_SPEED = 0.20; // yukari hiz
-    private static final double ARM_DOWN_SPEED = -0.20; // asagi hiz (esit kalkip insin)
+    private static final double ARM_UP_SPEED = 0.25; // yukari hiz
+    private static final double ARM_DOWN_SPEED = -0.25; // asagi hiz (esit kalkip insin)
     private static final double ARM_UP_SECONDS = 0.50; // yukari suresi
     private static final double ARM_DOWN_SECONDS = 0.50; // asagi suresi
     private static final double ARM_CYCLE_SECONDS = ARM_UP_SECONDS + ARM_DOWN_SECONDS;
@@ -66,21 +69,21 @@ public class ShootCommand extends Command {
                             .interpolate(startValue.hoodPosition, endValue.hoodPosition, t)));
 
     static {
-        distanceToShotMap.put(Inches.of(36.0), new Shot(2760, 0.12)); // Hub dibinden atis
-        distanceToShotMap.put(Inches.of(52.0), new Shot(3220, 0.19)); // En yakin
-        distanceToShotMap.put(Inches.of(72.0), new Shot(3393, 0.25)); // Yakin-orta
-        distanceToShotMap.put(Inches.of(92.0), new Shot(3565, 0.31)); // Orta-yakin
-        distanceToShotMap.put(Inches.of(114.4), new Shot(3766, 0.40)); // Orta (WCP referans)
-        distanceToShotMap.put(Inches.of(132.0), new Shot(3910, 0.43)); // Orta-uzak
-        distanceToShotMap.put(Inches.of(150.0), new Shot(4083, 0.46)); // Uzak
-        distanceToShotMap.put(Inches.of(165.5), new Shot(4198, 0.48)); // WCP uzak referans
+        distanceToShotMap.put(Inches.of(36.0), new Shot(2640, 0.12)); // Hub dibinden atis
+        distanceToShotMap.put(Inches.of(52.0), new Shot(3080, 0.19)); // En yakin
+        distanceToShotMap.put(Inches.of(72.0), new Shot(3245, 0.25)); // Yakin-orta
+        distanceToShotMap.put(Inches.of(92.0), new Shot(3410, 0.31)); // Orta-yakin
+        distanceToShotMap.put(Inches.of(114.4), new Shot(3603, 0.40)); // Orta (WCP referans)
+        distanceToShotMap.put(Inches.of(132.0), new Shot(3740, 0.43)); // Orta-uzak
+        distanceToShotMap.put(Inches.of(150.0), new Shot(3905, 0.46)); // Uzak
+        distanceToShotMap.put(Inches.of(165.5), new Shot(4015, 0.48)); // WCP uzak referans
 
         // Uzun menzil (tower/human tarafi yakini) - sahada tune edilecek
-        distanceToShotMap.put(Inches.of(182.0), new Shot(4347, 0.51));
-        distanceToShotMap.put(Inches.of(200.0), new Shot(4497, 0.55));
-        distanceToShotMap.put(Inches.of(220.0), new Shot(4657, 0.59));
-        distanceToShotMap.put(Inches.of(235.0), new Shot(4773, 0.62));
-        distanceToShotMap.put(Inches.of(242.0), new Shot(4830, 0.64)); // Human side'e yakin ust limit
+        distanceToShotMap.put(Inches.of(182.0), new Shot(4158, 0.51));
+        distanceToShotMap.put(Inches.of(200.0), new Shot(4301, 0.55));
+        distanceToShotMap.put(Inches.of(220.0), new Shot(4455, 0.59));
+        distanceToShotMap.put(Inches.of(235.0), new Shot(4565, 0.62));
+        distanceToShotMap.put(Inches.of(242.0), new Shot(4620, 0.64)); // Human side'e yakin ust limit
     }
 
     // ========================================================================
@@ -162,19 +165,30 @@ public class ShootCommand extends Command {
 
         // 2) ENTERPOLASYON
         Shot shot = distanceToShotMap.get(distanceToHub);
+        double targetRpm = shot.shooterRPM * kShooterRpmScale;
+        double distanceBlend = MathUtil.clamp(
+                (distanceToHub.in(Meters) - kMinShotDistance.in(Meters))
+                        / (kMaxShotDistance.in(Meters) - kMinShotDistance.in(Meters)),
+                0.0,
+                1.0);
+        double hoodFastTrim = MathUtil.interpolate(kNearHoodFastTrim, kFarHoodFastTrim, distanceBlend);
+        double targetHoodPosition = MathUtil.clamp(
+                shot.hoodPosition + hoodFastTrim,
+                HoodSubsystem.MIN_POSITION,
+                HoodSubsystem.MAX_POSITION);
 
-        if (Math.abs(shot.shooterRPM - lastTargetRpm) > 125.0) {
-            lastTargetRpm = shot.shooterRPM;
+        if (Math.abs(targetRpm - lastTargetRpm) > 125.0) {
+            lastTargetRpm = targetRpm;
             spinupStartTimestamp = Timer.getFPGATimestamp();
             readyCycles = 0;
         }
 
         // 3) SHOOTER + HOOD
-        shooter.setRPM(shot.shooterRPM);
+        shooter.setRPM(targetRpm);
 
-        if (lastHoodCommand < 0 || Math.abs(shot.hoodPosition - lastHoodCommand) > kHoodDeadband) {
-            hood.setPosition(shot.hoodPosition);
-            lastHoodCommand = shot.hoodPosition;
+        if (lastHoodCommand < 0 || Math.abs(targetHoodPosition - lastHoodCommand) > kHoodDeadband) {
+            hood.setPosition(targetHoodPosition);
+            lastHoodCommand = targetHoodPosition;
         }
 
         // 4) FEEDER + HOPPER
@@ -226,8 +240,12 @@ public class ShootCommand extends Command {
         SmartDashboard.putNumber("Shoot/Filtered Distance (inches)", distanceToHub.in(Inches));
         SmartDashboard.putNumber("Shoot/Distance (m)", distanceToHub.in(Meters));
         SmartDashboard.putString("Shoot/DistanceSource", lastDistanceSource);
-        SmartDashboard.putNumber("Shoot/Target RPM", shot.shooterRPM);
-        SmartDashboard.putNumber("Shoot/Hood Pos", shot.hoodPosition);
+        SmartDashboard.putNumber("Shoot/Target RPM", targetRpm);
+        SmartDashboard.putNumber("Shoot/Base RPM", shot.shooterRPM);
+        SmartDashboard.putNumber("Shoot/RPM Scale", kShooterRpmScale);
+        SmartDashboard.putNumber("Shoot/Hood Pos", targetHoodPosition);
+        SmartDashboard.putNumber("Shoot/Hood Base Pos", shot.hoodPosition);
+        SmartDashboard.putNumber("Shoot/Hood Trim", hoodFastTrim);
         SmartDashboard.putBoolean("Shoot/ShooterReady Strict", readyByStrict);
         SmartDashboard.putBoolean("Shoot/ShooterReady Fallback", readyByFallback);
         SmartDashboard.putBoolean("Shoot/HoodReady", hoodReady);

@@ -11,6 +11,8 @@ import com.pathplanner.lib.commands.FollowPathCommand;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.HttpCamera;
 import edu.wpi.first.cscore.HttpCamera.HttpCameraKind;
@@ -87,9 +89,8 @@ public class RobotContainer {
     private final double MaxAngularRate = RotationsPerSecond.of(1).in(RadiansPerSecond);
     private static final double JOYSTICK_DEADBAND = 0.15;
     private static final double INPUT_CURVE_EXPONENT = 1.5;
-    private static final double TRANSLATION_INPUT_RATE_LIMIT = 3.5; // joystick unit / s
-    private static final double ROTATION_INPUT_RATE_LIMIT = 5.0;    // joystick unit / s
-
+    private static final double TRANSLATION_INPUT_RATE_LIMIT = 2.5; // joystick unit / s (daha yumusak ivme)
+    private static final double ROTATION_INPUT_RATE_LIMIT = 3.5;   // joystick unit / s (donus ivmesi)
     // ========================================================================
     // SWERVE REQUEST'LER
     // ========================================================================
@@ -155,7 +156,7 @@ public class RobotContainer {
         // Atis: Shooter + Hood + Feeder + Hopper + IntakeArm agitasyon
         NamedCommands.registerCommand("shoot",
             new ShootCommand(shooter, hood, feeder, hopper, vision, "limelight", intakeArm)
-                .withTimeout(5.0));
+                .withTimeout(10.0));
 
         // Intake: Arm + Roller
         NamedCommands.registerCommand("intake",
@@ -280,17 +281,21 @@ public class RobotContainer {
         // ==================================================================
         drivetrain.setDefaultCommand(
             drivetrain.applyRequest(() -> {
+                final double rawForward = -joystick.getLeftY();
+                final double rawLeft = -joystick.getLeftX();
+                final double rawRotation = -joystick.getRightX();
+
                 final double xySign = driveXYInverted ? -1.0 : 1.0;
-                final double shapedForward = xySign * shapeInput(-joystick.getLeftY());
-                final double shapedLeft = xySign * shapeInput(-joystick.getLeftX());
-                final double shapedRotation = shapeInput(-joystick.getRightX());
+                final double shapedForward = xySign * shapeInput(rawForward);
+                final double shapedLeft = xySign * shapeInput(rawLeft);
+                final double shapedRotation = shapeInput(rawRotation);
 
                 final double smoothedForward = xInputLimiter.calculate(shapedForward);
                 final double smoothedLeft = yInputLimiter.calculate(shapedLeft);
                 final double smoothedRotation = rotInputLimiter.calculate(shapedRotation);
 
-                // LB basili mi? Turbo mod (max hiz) : Normal mod (%60 hiz)
-                final double speedMultiplier = joystick.getHID().getLeftBumperButton() ? 1.0 : 0.3;
+                // LB basili mi? Turbo mod (max hiz) : Normal mod (%50 hiz)
+                final double speedMultiplier = joystick.getHID().getLeftBumperButton() ? 1.0 : 0.50;
 
                 return drive
                     .withVelocityX(smoothedForward * MaxSpeed * speedMultiplier)
@@ -424,7 +429,15 @@ public class RobotContainer {
         //   Field-centric suruste "ileri" her zaman driver'dan uzaga gider.
         // ==================================================================
         joystick.back().onTrue(Commands.runOnce(() -> {
+            // Field-centric referansi sifirla
             drivetrain.seedFieldCentric();
+            // Odometry heading'i de sifirla (robotun su anki yonu = 0°)
+            // XY'yi koru, sadece heading'i duzelt
+            Pose2d currentPose = drivetrain.getState().Pose;
+            drivetrain.resetPose(new Pose2d(
+                currentPose.getTranslation(),
+                new Rotation2d(0)
+            ));
             xInputLimiter.reset(0);
             yInputLimiter.reset(0);
             SmartDashboard.putString("Drive/Status", "HEADING RESET!");
