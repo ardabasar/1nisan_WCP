@@ -597,41 +597,46 @@ public class VisionSubsystem extends SubsystemBase {
             return;
         }
 
-        // 2) JUMP REJECTION — 0.5sn icinde 3m+ sicradi → outlier, reddet
-        //    AMA: 2+ saniye gecmisse (robot tasindi, pit→saha vs.) → RESEED yap
-        if (lastAcceptedPose != null && lastAcceptedTimestampSeconds > 0) {
-            double gap = estimate.timestampSeconds - lastAcceptedTimestampSeconds;
-            double jump = estimate.pose.getTranslation()
-                .getDistance(lastAcceptedPose.getTranslation());
-
-            if (gap > 0 && gap < 0.5 && jump > 3.0) {
-                // Hizli ardisik frame'lerde buyuk sicrama → outlier
-                if (loopCount % DASHBOARD_INTERVAL == 0) {
-                    SmartDashboard.putString("Vision/Status", "Skip:Jump");
-                }
-                return;
+        // 2) KONUM FARKI BUYUKSE → RESETPOSE (aninda duzelt, Kalman bekleme)
+        //    Tag gorup de konumu duzeltememek OLMAZ. Fark buyukse direkt resetle.
+        if (poseDiffMeters > 1.0 && estimate.tagCount >= 2) {
+            // 2+ tag ve 1m+ fark → odometry KESIN yanlis, vision KESIN dogru
+            Pose2d resetPose = (mt1Estimate != null && mt1Estimate.tagCount >= 2)
+                ? mt1Estimate.pose : estimate.pose;
+            drivetrain.resetPose(resetPose);
+            lastAcceptedPose = estimate.pose;
+            lastAcceptedTimestampSeconds = estimate.timestampSeconds;
+            visionUpdateCount++;
+            if (loopCount % DASHBOARD_INTERVAL == 0) {
+                SmartDashboard.putString("Vision/Status", "HARD-RESET! fark=" + round2(poseDiffMeters) + "m");
+                SmartDashboard.putNumber("Vision/Tags", estimate.tagCount);
+                SmartDashboard.putNumber("Vision/UpdateCount", visionUpdateCount);
             }
+            return;
+        }
 
-            // 2+ saniye boyunca vision kabul edilmediyse VE konum cok farkli
-            // → Robot tasindi (pit→saha), yeniden seed al
-            if (gap >= 2.0 && jump > 3.0 && estimate.tagCount >= 2) {
-                Pose2d reseedPose = (mt1Estimate != null && mt1Estimate.tagCount >= 2)
-                    ? mt1Estimate.pose : estimate.pose;
-                drivetrain.resetPose(reseedPose);
-                lastAcceptedPose = estimate.pose;
-                lastAcceptedTimestampSeconds = estimate.timestampSeconds;
-                SmartDashboard.putString("Vision/Status", "RE-SEED! (tasindi)");
-                return;
+        if (poseDiffMeters > 0.5 && estimate.tagCount >= 1 && linearSpeedMps < 1.0) {
+            // 1+ tag, 50cm+ fark, yavas → vision'a tam guven ile resetPose
+            Pose2d resetPose = (mt1Estimate != null && mt1Estimate.tagCount >= 1 && mt1Estimate.pose != null)
+                ? mt1Estimate.pose : estimate.pose;
+            drivetrain.resetPose(resetPose);
+            lastAcceptedPose = estimate.pose;
+            lastAcceptedTimestampSeconds = estimate.timestampSeconds;
+            visionUpdateCount++;
+            if (loopCount % DASHBOARD_INTERVAL == 0) {
+                SmartDashboard.putString("Vision/Status", "RESET! fark=" + round2(poseDiffMeters) + "m");
+                SmartDashboard.putNumber("Vision/Tags", estimate.tagCount);
+                SmartDashboard.putNumber("Vision/UpdateCount", visionUpdateCount);
             }
+            return;
         }
 
         lastAcceptedPose = estimate.pose;
         lastAcceptedTimestampSeconds = estimate.timestampSeconds;
 
-        // 3) STDDEV HESAPLA — Turkiye 1.si formulu
-        // xyStdDev = 0.125 * mesafe^2 / tagSayisi
+        // 3) STDDEV HESAPLA — fark kucuk, normal Kalman fusion
         double xyStdDev = XY_STDDEV_COEFFICIENT * Math.pow(estimate.avgTagDist, 2.0) / estimate.tagCount;
-        xyStdDev = Math.max(xyStdDev, 0.05);
+        xyStdDev = Math.max(xyStdDev, 0.02);
 
         // Heading: 2+ tag → MegaTag1 heading duzelt, 1 tag → dokunma
         double headingStdDev = HEADING_STDDEV_SINGLE_TAG;
@@ -639,23 +644,7 @@ public class VisionSubsystem extends SubsystemBase {
             headingStdDev = HEADING_STDDEV_MULTI_TAG;
         }
 
-        // 4) DURUM BAZLI CARPANLAR
-        // Hizli hareket → vision biraz daha az guvenilir
-        if (linearSpeedMps > 2.0) {
-            xyStdDev *= 1.5;
-        }
-
-        // Robot yavas + fark buyuk → vision'a cok guven (odometry kaydi)
-        if (linearSpeedMps < 0.5 && poseDiffMeters > 0.10) {
-            xyStdDev = 0.01;  // Neredeyse tam guven
-        }
-        // Robot TAMAMEN duruyorsa → vision'a MAKSIMUM guven
-        // Capraz baslatma, disabled mod, sahaya yerlestirme vs.
-        if (linearSpeedMps < 0.05 && poseDiffMeters > 0.30) {
-            xyStdDev = 0.005;  // Tam guven - robot duruyorsa vision dogrudur
-        }
-
-        // 5) VISION FUZYONU — disabled/enabled FARK ETMEZ
+        // 4) VISION FUZYONU — disabled/enabled FARK ETMEZ
         drivetrain.addVisionMeasurement(estimate.pose, estimate.timestampSeconds,
             VecBuilder.fill(xyStdDev, xyStdDev, headingStdDev));
         visionUpdateCount++;
