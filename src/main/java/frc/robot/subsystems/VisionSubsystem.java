@@ -22,11 +22,11 @@ import frc.robot.LimelightHelpers.RawFiducial;
  * ============================================================================
  * VISION SUBSYSTEM - 2026 REBUILT Saha Telemetrisi + Elastic Dashboard
  * ============================================================================
- * WPILib 2026.2.1 Resmi AprilTag JSON verileri kullanilmaktadir.
- * Kaynak: 2026-rebuilt-welded.json (wpilibsuite/allwpilib v2026.2.1)
+ * Resmi AprilTag JSON verileri kullanilmaktadir.
+ * Kaynak: 2026-rebuilt-andymark.json (Turkiye sahasi - Andymark)
  *
  * Saha: REBUILT presented by Haas
- * Saha Boyutu: 16.541m x 8.069m
+ * Saha Boyutu: 16.518m x 8.043m
  * Toplam AprilTag: 32 adet
  * Koordinat Sistemi: Blue alliance duvarinin sag alt kosesi origin (WPILib NWU)
  *
