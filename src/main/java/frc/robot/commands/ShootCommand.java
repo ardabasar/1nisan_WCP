@@ -70,21 +70,21 @@ public class ShootCommand extends Command {
                             .interpolate(startValue.hoodPosition, endValue.hoodPosition, t)));
 
     static {
-        distanceToShotMap.put(Inches.of(36.0),  new Shot(3240, 0.12));  // 2400 * 1.35
-        distanceToShotMap.put(Inches.of(52.0),  new Shot(3780, 0.19));  // 2800 * 1.35
-        distanceToShotMap.put(Inches.of(72.0),  new Shot(3983, 0.25));  // 2950 * 1.35
-        distanceToShotMap.put(Inches.of(92.0),  new Shot(4185, 0.31));  // 3100 * 1.35
-        distanceToShotMap.put(Inches.of(114.4), new Shot(4421, 0.40));  // 3275 * 1.35
-        distanceToShotMap.put(Inches.of(132.0), new Shot(4590, 0.43));  // 3400 * 1.35
-        distanceToShotMap.put(Inches.of(150.0), new Shot(4793, 0.46));  // 3550 * 1.35
-        distanceToShotMap.put(Inches.of(165.5), new Shot(4928, 0.48));  // 3650 * 1.35
+        distanceToShotMap.put(Inches.of(36.0),  new Shot(3120, 0.12));  // Hub dibinden atis
+        distanceToShotMap.put(Inches.of(52.0),  new Shot(3640, 0.19));  // En yakin
+        distanceToShotMap.put(Inches.of(72.0),  new Shot(3835, 0.25));  // Yakin-orta
+        distanceToShotMap.put(Inches.of(92.0),  new Shot(4030, 0.31));  // Orta-yakin
+        distanceToShotMap.put(Inches.of(114.4), new Shot(4258, 0.40));  // Orta (WCP referans)
+        distanceToShotMap.put(Inches.of(132.0), new Shot(4420, 0.43));  // Orta-uzak
+        distanceToShotMap.put(Inches.of(150.0), new Shot(4615, 0.46));  // Uzak
+        distanceToShotMap.put(Inches.of(165.5), new Shot(4745, 0.48));  // WCP uzak referans
 
         // Uzun menzil
-        distanceToShotMap.put(Inches.of(182.0), new Shot(5103, 0.51));  // 3780 * 1.35
-        distanceToShotMap.put(Inches.of(200.0), new Shot(5279, 0.55));  // 3910 * 1.35
-        distanceToShotMap.put(Inches.of(220.0), new Shot(5468, 0.59));  // 4050 * 1.35
-        distanceToShotMap.put(Inches.of(235.0), new Shot(5603, 0.62));  // 4150 * 1.35
-        distanceToShotMap.put(Inches.of(242.0), new Shot(5670, 0.64));  // 4200 * 1.35
+        distanceToShotMap.put(Inches.of(182.0), new Shot(4914, 0.51));
+        distanceToShotMap.put(Inches.of(200.0), new Shot(5083, 0.55));
+        distanceToShotMap.put(Inches.of(220.0), new Shot(5265, 0.59));
+        distanceToShotMap.put(Inches.of(235.0), new Shot(5395, 0.62));
+        distanceToShotMap.put(Inches.of(242.0), new Shot(5460, 0.64));  // Upper limit
     }
 
     // ========================================================================
